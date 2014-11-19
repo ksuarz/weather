@@ -1,0 +1,52 @@
+body {
+  font-family:Helvetica, sans-serif;
+}
+
+a {
+  text-decoration:underline;
+  color:#000000;
+}
+
+a.visited {
+  text-decoration:underline;
+  color:#000000;
+}
+
+#left {
+  float:left;
+  text-align:center;
+  width:300px;
+}
+
+#right {
+  overflow: hidden;
+}
+
+.header {
+  text-align:center;
+  font-style:italic;
+  padding-bottom:5px;
+  padding-top:5px;
+  background-color:#aaaaaa;
+}
+
+.title {
+  text-align:left;
+  padding-bottom:1px;
+  overflow:hidden;
+  font-size:40px;
+}
+
+.subtitle {
+  font-style:italic;
+  text-align:left;
+  overflow:hidden;
+  padding-top:1px;
+  font-size:24px;
+  color:#777777;
+}
+
+.content {
+  width:90%;
+  margin:0 auto;
+}

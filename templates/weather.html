@@ -1,11 +1,30 @@
 <!DOCTYPE html>
 <html>
     <head>
-      <title>{{.Title}}</title>
+      <title>{{.Name}} - goweather</title>
+      <link rel="stylesheet" type="text/css" href="templates/styles.css" />
     </head>
 
-    <body>
-      <h1>{{.Body}}</h1>
+    <body class="content">
+      <div class="header">goweather</div>
+      <div class="title">{{.Name}}</div>
+      <div class="subtitle">{{.Sys.Country}}</div>
+
+      <div class="temperature">{{.Main.Temperature}}°</div>
+      <div class="description">
+        
+      </div>
+      <table>
+        <tr>
+          <td>Humidity</td> <td>{{.Main.Humidity}}%</td>
+        </tr>
+        <tr>
+          <td>Pressure</td> <td>{{.Main.Pressure}} HPa</td>
+        </tr>
+        <tr>
+          <td>Wind</td> <td>{{.Wind.Speed}} m/s</td>
+        </tr>
+      </table>
     </body>
 </html>
 
