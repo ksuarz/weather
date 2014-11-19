@@ -1,0 +1,9 @@
+# Swap files
+*~
+*.sw[po]
+
+# Compiled files
+weather
+
+# Log files
+*.log
