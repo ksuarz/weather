@@ -5,12 +5,13 @@ a REST interface.
 package main
 
 import (
+    "errors"
     "encoding/json"
     "html/template"
     "io/ioutil"
     "log"
     "net/http"
-    "strings"
+    "regexp"
 )
 
 type WeatherDesc struct {
@@ -41,9 +42,21 @@ type WeatherList struct {
 }
 
 var templates = template.Must(template.ParseFiles("templates/index.html", "templates/weather.html"))
+var validPath = regexp.MustCompile("^/(weather)/([a-zA-Z0-9]+)$")
 
-func renderTemplate(w http.ResponseWriter, tmpl string, data {}template) {
-    var err error = templates.ExecuteTemplate(w, "templates/"+tmpl+".html", data)
+func getCity(w http.ResponseWriter, r *http.Request) (string, error) {
+    m := validPath.FindStringSubmatch(r.URL.Path)
+    if m == nil {
+        http.NotFound(w, r)
+        return "", errors.New("Invalid Page")
+    }
+
+    // First subexpression is "weather"; city is second
+    return m[2], nil
+}
+
+func renderTemplate(w http.ResponseWriter, tmpl string, data interface{}) {
+    var err error = templates.ExecuteTemplate(w, tmpl+".html", data)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         log.Fatal(err)
@@ -55,11 +68,19 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWeather(w http.ResponseWriter, r *http.Request) {
-    var city string = strings.SplitN(r.URL.Path, "/", 3)[2]
+    var city string
     var data WeatherList
+    var resp *http.Response
+    var err error
+
+    // Validate the city name
+    city, err = getCity(w, r)
+    if err != nil {
+        return
+    }
 
     // Query the OpenWeatherMap endpoint
-    resp, err := http.Get("http://api.openweathermap.org/data/2.5/find?q=" + city + "&units=metric")
+    resp, err = http.Get("http://api.openweathermap.org/data/2.5/find?q=" + city + "&units=metric")
     if err != nil {
         log.Fatal(err)
         return
@@ -83,7 +104,7 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
     }
 
     // Render a template
-    executeTemplate(w, "weather", data.List[0])
+    renderTemplate(w, "weather", data.List[0])
 }
 
 func main() {
@@ -93,11 +114,3 @@ func main() {
     // Start the server
     http.ListenAndServe(":8080", nil)
 }
-
-//func loadPage(filename string) (*Page, error) {
-//    body, err := ioutil.ReadFile(filename)
-//    if err != nil {
-//        return nil, err
-//    }
-//    return &Page(title, body), nil
-//}
