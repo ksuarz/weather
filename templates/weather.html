@@ -2,24 +2,80 @@
 <html>
     <head>
       <title>{{.Name}} - goweather</title>
-      <link rel="stylesheet" type="text/css" href="/templates/styles.css" />
+      <style>
+          body {
+            font-family:Helvetica, sans-serif;
+          }
+
+          a {
+            text-decoration:underline;
+            color:#000000;
+          }
+
+          a.visited {
+            text-decoration:underline;
+            color:#000000;
+          }
+
+          #left {
+            float:left;
+            text-align:center;
+            width:300px;
+          }
+
+          #right {
+            overflow: hidden;
+          }
+
+          .title {
+            text-align:left;
+            padding-bottom:1px;
+            overflow:hidden;
+            font-size:40px;
+          }
+
+          .subtitle {
+            font-style:italic;
+            text-align:left;
+            overflow:hidden;
+            padding-top:1px;
+            font-size:24px;
+            color:#777777;
+          }
+
+          .content {
+            width:90%;
+            margin:0 auto;
+          }
+
+          .temperature {
+            font-size:104px;
+            border:1px;
+          }
+
+          .description {
+            .font-style:italic;
+          }
+      </style>
     </head>
 
     <body class="content">
-      <div class="header">goweather</div>
       <div class="title">{{.Name}}</div>
       <div class="subtitle">{{.Sys.Country}}</div>
 
-      <div class="temperature">{{.Main.Temperature}}°</div>
-      <div class="description">
-        
+      <div class="temperature">{{.Main.Temperature}}°</div><br />
+      <div class="description" style="font-style:italic;">
+        Expect {{with .Weather}} {{range .}} {{.Description}}, {{end}} {{end}}. <br />
+        {{.Comparison}}
       </div>
+
+      <br />
       <table>
         <tr>
           <td>Humidity</td> <td>{{.Main.Humidity}}%</td>
         </tr>
         <tr>
-          <td>Pressure</td> <td>{{.Main.Pressure}} HPa</td>
+          <td>Pressure</td> <td>{{.Main.Pressure}} hPa</td>
         </tr>
         <tr>
           <td>Wind</td> <td>{{.Wind.Speed}} m/s</td>
