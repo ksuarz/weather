@@ -60,12 +60,12 @@
     </head>
 
     <body class="content">
-      <div class="title">{{.Name}}</div>
-      <div class="subtitle">{{.Sys.Country}}</div>
+      <div class="title">{{.Name | html}}</div>
+      <div class="subtitle">{{.Sys.Country | html}}</div>
 
       <div class="temperature">{{.Main.Temperature}}°</div><br />
       <div class="description" style="font-style:italic;">
-        Expect {{with .Weather}} {{range .}} {{.Description}}, {{end}} {{end}}. <br />
+        Expect {{with .Weather}} {{range .}} {{.Description | html}}, {{end}} {{end}}. <br />
         {{.Comparison}}
       </div>
 
