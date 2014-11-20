@@ -5,15 +5,17 @@ a REST interface.
 package main
 
 import (
-    "strings"
     "encoding/json"
     "errors"
+    "fmt"
     "html/template"
     "io/ioutil"
     "log"
     "math"
     "net/http"
     "regexp"
+    "strings"
+    "time"
 )
 
 /*
@@ -90,12 +92,6 @@ func getCity(w http.ResponseWriter, r *http.Request) (string, error) {
 
     // First subexpression is "weather"; city is second
     return m[2], nil
-}
-
-// Given the weather data, determines whether or not the data was taken during the
-// day or the night.
-func isDaytime(weather WeatherDesc) bool {
-    return strings.Contains(weather.Icon, "d")
 }
 
 // Returns a human-readable string that will be grammatically correct for the
@@ -221,7 +217,7 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 
     // Data sanitization
     var datum WeatherData = data.List[0]
-    datum.Comparison = getComparison(datum.Main.Temperature, isDaytime(datum.Weather[0]), city)
+    datum.Comparison = getComparison(datum)
     datum.Main.Temperature = math.Floor(datum.Main.Temperature + 0.5)
     datum.FullDescription = getFullWeatherDescription(datum.Weather)
 
@@ -231,13 +227,17 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 
 // Takes today's weather and returns a comparison string determining whether or
 // not it is warmer or cooler than yesterday.
-func getComparison(today float64, todayIsDay bool, city string) string {
+func getComparison(todayData WeatherData) string {
     var resp *http.Response
     var err error
     var data WeatherList
 
     // Query the historical data endpoint
-    resp, err = http.Get("http://api.openweathermap.org/data/2.5/history/city?q=" + city + "&type=day&units=metric")
+    // Grab data for this city ID exactly 24 hr (86400 sec) ago
+    var cityID int32 = todayData.CityId
+    var yesterdayTime int64 = todayData.Time - 86400
+    var apiString = fmt.Sprintf("http://api.openweathermap.org/data/2.5/history/city?id=%d&start=%d&type=hour&cnt=1", cityID, yesterdayTime)
+    resp, err = http.Get(apiString)
     if err != nil {
         log.Printf("Couldn't get yesterday's data - querying failed.")
         log.Printf("%v", err)
@@ -265,40 +265,54 @@ func getComparison(today float64, todayIsDay bool, city string) string {
         return ""
     }
 
-    var datum WeatherData = data.List[min(hour, len(data.List)-1)]
-    var yesterday float64 = datum.Main.Temperature - 273.15
-    var diff float64 = today - yesterday
-    var tft, yft string
-    if todayIsDay {
-        tft = "Today"
-        yft = "yesterday"
+    // Select only the first entry (there should be at most two)
+    var datum WeatherData = data.List[0]
+
+    // Figure out whether it's daytime or nighttime
+    var today, yesterday string
+    var hour = time.Unix(todayData.Time, 0).Hour()
+    if hour >= 22 || hour < 5 {
+        // 22:00 - 04:59
+        today = "Tonight"
+        yesterday = "last night"
+    } else if hour >= 5 && hour < 12 {
+        // 05:00 - 11:59
+        today = "Today"
+        yesterday = "yesterday"
+    } else if hour >= 12 && hour < 18 {
+        // 12:00 - 17:59
+        today = "This afternoon"
+        yesterday = "yesterday"
     } else {
-        tft = "Tonight"
-        yft = "last night"
+        // 18:00 - 21:59
+        today = "This evening"
+        yesterday = "last night"
     }
 
+    // Get yesterday's temperature, converting from K to C
+    var diff float64 = todayData.Main.Temperature - datum.Main.Temperature + 273.15
     log.Printf("Detected temperature difference from yesterday: %f", diff)
     if diff < -5 {
         // (-inf, -5)
-        return tft + " is much cooler than " + yft + "."
+        return today + " is much cooler than " + yesterday + "."
     } else if diff < -2.5 {
         // [-5, -2.5)
-        return tft + " is cooler than " + yft + "."
+        return today + " is cooler than " + yesterday + "."
     } else if diff < -1.0 {
         // [-2.5, -1.0)
-        return tft + " is slightly cooler than " + yft + "."
+        return today + " is slightly cooler than " + yesterday + "."
     } else if diff < 1.0 {
         // [-1.0, 1.0)
-        return tft + "'s temperature is similar to " + yft + "."
+        return today + "'s temperature is similar to " + yesterday + "."
     } else if diff < 2.5 {
         // [1.0, 2.5)
-        return tft + " is slightly warmer than " + yft + "."
+        return today + " is slightly warmer than " + yesterday + "."
     } else if diff < 5.0 {
         // [2.5, 5.0)
-        return tft + " is warmer than " + yft + "."
+        return today + " is warmer than " + yesterday + "."
     } else {
         // [5.0, inf)
-        return tft + " is much warmer than " + yft + "."
+        return today + " is much warmer than " + yesterday + "."
     }
 }
 
