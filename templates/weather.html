@@ -54,7 +54,8 @@
           }
 
           .description {
-            .font-style:italic;
+            font-style:italic;
+            width:100px;
           }
       </style>
     </head>
@@ -64,21 +65,21 @@
       <div class="subtitle">{{.Sys.Country | html}}</div>
 
       <div class="temperature">{{.Main.Temperature}}°</div><br />
-      <div class="description" style="font-style:italic;">
-        Expect {{with .Weather}} {{range .}} {{.Description | html}}, {{end}} {{end}}. <br />
+      <div style="font-style:italic;">
+        Expect {{.FullDescription}}. <br />
         {{.Comparison}}
       </div>
 
       <br />
       <table>
         <tr>
-          <td>Humidity</td> <td>{{.Main.Humidity}}%</td>
+          <td class="description">Humidity</td> <td>{{.Main.Humidity}}%</td>
         </tr>
         <tr>
-          <td>Pressure</td> <td>{{.Main.Pressure}} hPa</td>
+          <td class="description">Pressure</td> <td>{{.Main.Pressure}} hPa</td>
         </tr>
         <tr>
-          <td>Wind</td> <td>{{.Wind.Speed}} m/s</td>
+          <td class="description">Wind</td> <td>{{.Wind.Speed}} m/s</td>
         </tr>
       </table>
     </body>
