@@ -14,22 +14,49 @@ import (
     "math"
     "net/http"
     "regexp"
-    "time"
 )
 
+/*
+Describes individual weather descriptions:
+  - Id: The ID number of the weather condition
+  - Type: A string containing the official weather type
+  - Description: A longer description of the weather type
+  - Icon: The name of an icon available via the API
+*/
 type WeatherDesc struct {
     Id int `json:"id"`
     Type string `json:"main"`
     Description string `json:"description"`
+    Icon string `json:"icon"`
 }
 
+/*
+A complete data structure describing the weather for a given time.
+  - Name: The name of the city
+  - CityID: A unique ID number for the city
+  - Time: The time, expressed as seconds since the epoch
+  - Weather: A list of individual WeatherDesc structures detailing the
+    individual weather conditions
+  - Sys: An embedded document containing:
+    + Country: Either the full country name or a two-letter country code
+    + Sunrise: The time of sunrise, expressed as Unix time
+    + Sunset: The time of sunset, expressed as Unix time
+  - Wind: an embedded document containing:
+    + Speed: The wind speed in meters per second
+  - Main: an embedded document containing:
+    + Temperature: The temperature in either Celsius or Kelvin
+    + Humidity: The humidity, as a percentage from 0% to 100$
+    + Pressure: The pressure in hPa.
+*/
 type WeatherData struct {
     Name string `json:"name"`
+    CityId int32 `json:"id"`
+    Time int64 `json:"dt"`
     Weather []WeatherDesc
     Sys struct {
         Country string `json:"country"`
-        Sunrise int `json:"sunrise"`
-        Sunset int `json:"sunset"`
+        Sunrise int64 `json:"sunrise"`
+        Sunset int64 `json:"sunset"`
     } `json:"sys"`
     Wind struct {
         Speed float64 `json:"speed"`
@@ -43,6 +70,9 @@ type WeatherData struct {
     FullDescription string
 }
 
+/*
+A list of weather data points.
+*/
 type WeatherList struct {
     List []WeatherData `json:"list"`
 }
@@ -50,6 +80,7 @@ type WeatherList struct {
 var templates = template.Must(template.ParseFiles("templates/index.html", "templates/weather.html", "templates/notfound.html"))
 var validPath = regexp.MustCompile("^/(weather)/([a-zA-Z0-9 ,]+)$")
 
+// Given a URL, returns the city portion of it and an error if it occurs.
 func getCity(w http.ResponseWriter, r *http.Request) (string, error) {
     m := validPath.FindStringSubmatch(r.URL.Path)
     if m == nil {
@@ -61,26 +92,14 @@ func getCity(w http.ResponseWriter, r *http.Request) (string, error) {
     return m[2], nil
 }
 
-func getTodayFlavorText(hour int) string {
-    if hour < 5 || hour > 21 {
-        return "Tonight"
-    } else if hour >= 9 && hour < 12 {
-        return "Today"
-    } else if hour >= 12 && hour <= 17 {
-        return "This afternoon"
-    } else {
-        return "This evening"
-    }
+// Given the weather data, determines whether or not the data was taken during the
+// day or the night.
+func isDaytime(weather WeatherDesc) bool {
+    return strings.Contains(weather.Icon, "d")
 }
 
-func getYesterdayFlavorText(hour int) string {
-    if hour < 5 || hour > 21 {
-        return "last night"
-    } else {
-        return "yesterday"
-    }
-}
-
+// Returns a human-readable string that will be grammatically correct for the
+// sentences we are constructing.
 func getWeatherDescription(weather WeatherDesc) string {
     switch weather.Id {
         case 200, 230: return "thunderstorms with light rain"
@@ -127,14 +146,21 @@ func getWeatherDescription(weather WeatherDesc) string {
     }
 }
 
+// Given a list of weather descriptions, return their combination in a
+// properly-punctuated fashion.
 func getFullWeatherDescription(weather []WeatherDesc) string {
     var descs []string = make([]string, len(weather))
     for i := 0; i < len(weather); i = i + 1 {
         descs[i] = getWeatherDescription(weather[i])
     }
-    return strings.Join(descs, ", ")
+    if len(descs) == 1 {
+        return descs[0]
+    } else {
+        return strings.Join(descs[:len(descs)-1], ", ") + " and " + descs[len(descs)-1]
+    }
 }
 
+// Renders the template found at 'templates/${tmpl}.html'.
 func renderTemplate(w http.ResponseWriter, tmpl string, data interface{}) {
     var err error = templates.ExecuteTemplate(w, tmpl+".html", data)
     if err != nil {
@@ -195,7 +221,7 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 
     // Data sanitization
     var datum WeatherData = data.List[0]
-    datum.Comparison = getComparison(datum.Main.Temperature, city)
+    datum.Comparison = getComparison(datum.Main.Temperature, isDaytime(datum.Weather[0]), city)
     datum.Main.Temperature = math.Floor(datum.Main.Temperature + 0.5)
     datum.FullDescription = getFullWeatherDescription(datum.Weather)
 
@@ -203,8 +229,9 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
     renderTemplate(w, "weather", datum)
 }
 
-func getComparison(today float64, city string) string {
-    var hour int = time.Now().Hour()
+// Takes today's weather and returns a comparison string determining whether or
+// not it is warmer or cooler than yesterday.
+func getComparison(today float64, todayIsDay bool, city string) string {
     var resp *http.Response
     var err error
     var data WeatherList
@@ -240,27 +267,42 @@ func getComparison(today float64, city string) string {
 
     var datum WeatherData = data.List[min(hour, len(data.List)-1)]
     var yesterday float64 = datum.Main.Temperature - 273.15
-    var tft, yft string = getTodayFlavorText(hour), getYesterdayFlavorText(hour)
     var diff float64 = today - yesterday
+    var tft, yft string
+    if todayIsDay {
+        tft = "Today"
+        yft = "yesterday"
+    } else {
+        tft = "Tonight"
+        yft = "last night"
+    }
 
     log.Printf("Detected temperature difference from yesterday: %f", diff)
     if diff < -5 {
-        return tft + " is much colder than " + yft + "."
+        // (-inf, -5)
+        return tft + " is much cooler than " + yft + "."
     } else if diff < -2.5 {
-        return tft + " is colder than " + yft + "."
-    } else if diff < -1.0 {
+        // [-5, -2.5)
         return tft + " is cooler than " + yft + "."
+    } else if diff < -1.0 {
+        // [-2.5, -1.0)
+        return tft + " is slightly cooler than " + yft + "."
     } else if diff < 1.0 {
+        // [-1.0, 1.0)
         return tft + "'s temperature is similar to " + yft + "."
     } else if diff < 2.5 {
-        return tft + " is warmer than " + yft + "."
+        // [1.0, 2.5)
+        return tft + " is slightly warmer than " + yft + "."
     } else if diff < 5.0 {
-        return tft + " is hotter than " + yft + "."
+        // [2.5, 5.0)
+        return tft + " is warmer than " + yft + "."
     } else {
-        return tft + " is much hotter than " + yft + "."
+        // [5.0, inf)
+        return tft + " is much warmer than " + yft + "."
     }
 }
 
+// Returns the minimum of two integers.
 func min(x, y int) int {
     if x < y {
         return x
