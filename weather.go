@@ -68,6 +68,7 @@ type WeatherData struct {
         Humidity float64 `json:"humidity"`
         Pressure float64 `json:"pressure"`
     } `json:"main"`
+    MainIcon string
     Comparison string
     FullDescription string
 }
@@ -79,14 +80,13 @@ type WeatherList struct {
     List []WeatherData `json:"list"`
 }
 
-var templates = template.Must(template.ParseFiles("templates/index.html", "templates/weather.html", "templates/notfound.html"))
+var templates = template.Must(template.ParseFiles("index.html", "weather.html", "notfound.html"))
 var validPath = regexp.MustCompile("^/(weather)/([a-zA-Z0-9 ,]+)$")
 
 // Given a URL, returns the city portion of it and an error if it occurs.
 func getCity(w http.ResponseWriter, r *http.Request) (string, error) {
     m := validPath.FindStringSubmatch(r.URL.Path)
     if m == nil {
-        http.NotFound(w, r)
         return "", errors.New("Invalid Page")
     }
 
@@ -182,6 +182,7 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
     // Validate the city name
     city, err = getCity(w, r)
     if err != nil {
+        http.Redirect(w, r, "/notfound.html", http.StatusNotFound)
         return
     }
 
@@ -191,7 +192,6 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
         log.Fatal(err)
         return
     }
-    // TODO handle *resp.StatusCode
     defer resp.Body.Close()
 
     // Read in the JSON response
@@ -211,15 +211,18 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
 
     // If no data, then city not found
     if len(data.List) == 0 {
-        http.Redirect(w, r, "/notfound", http.StatusNotFound)
+        http.Redirect(w, r, "/notfound.html", http.StatusNotFound)
         return
     }
 
-    // Data sanitization
+    // Data sanitization and adjustments for the HTML template
     var datum WeatherData = data.List[0]
     datum.Comparison = getComparison(datum)
     datum.Main.Temperature = math.Floor(datum.Main.Temperature + 0.5)
     datum.FullDescription = getFullWeatherDescription(datum.Weather)
+
+    // Render an icon
+    // TODO
 
     // Render a template
     renderTemplate(w, "weather", datum)
@@ -329,6 +332,7 @@ func main() {
     http.HandleFunc("/", handleIndex)
     http.HandleFunc("/weather/", handleWeather)
     http.HandleFunc("/notfound/", handleNotFound)
+    http.Handle("/include/", http.StripPrefix("/include/", http.FileServer(http.Dir("include"))))
 
     // Start the server
     http.ListenAndServe(":8080", nil)
