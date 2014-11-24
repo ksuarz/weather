@@ -218,11 +218,9 @@ func handleWeather(w http.ResponseWriter, r *http.Request) {
     // Data sanitization and adjustments for the HTML template
     var datum WeatherData = data.List[0]
     datum.Comparison = getComparison(datum)
-    datum.Main.Temperature = math.Floor(datum.Main.Temperature + 0.5)
     datum.FullDescription = getFullWeatherDescription(datum.Weather)
-
-    // Render an icon
-    // TODO
+    datum.Main.Temperature = math.Floor(datum.Main.Temperature + 0.5)
+    datum.MainIcon = datum.Weather[0].Icon
 
     // Render a template
     renderTemplate(w, "weather", datum)
@@ -239,7 +237,7 @@ func getComparison(todayData WeatherData) string {
     // Grab data for this city ID exactly 24 hr (86400 sec) ago
     var cityID int32 = todayData.CityId
     var yesterdayTime int64 = todayData.Time - 86400
-    var apiString = fmt.Sprintf("http://api.openweathermap.org/data/2.5/history/city?id=%d&start=%d&type=hour&cnt=1", cityID, yesterdayTime)
+    var apiString = fmt.Sprintf("http://api.openweathermap.org/data/2.5/history/city?id=%d&start=%d&type=hour&cnt=3", cityID, yesterdayTime)
     resp, err = http.Get(apiString)
     if err != nil {
         log.Printf("Couldn't get yesterday's data - querying failed.")
@@ -268,7 +266,7 @@ func getComparison(todayData WeatherData) string {
         return ""
     }
 
-    // Select only the first entry (there should be at most two)
+    // Select only the first entry
     var datum WeatherData = data.List[0]
 
     // Figure out whether it's daytime or nighttime
