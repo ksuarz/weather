@@ -5,13 +5,13 @@
       <link rel="stylesheet" type="text/css" href="/include/styles.css" />
       <script type="text/javascript">
         var redir = function() {
-          window.location.replace("/weather/" + document.getElementById("query").value)
-        }
+          window.location.replace("/weather/" + document.getElementById("query").value);
+        };
       </script>
     </head>
 
     <body>
-      <div class="navbar">
+      <div class="navbar" onsubmit="redir();">
         <form>
           <input class="input" type="text" id="query" /> <input type="button" value="go" onClick="redir();"/>
         </form>
@@ -52,4 +52,3 @@
     </div>
     </body>
 </html>
-

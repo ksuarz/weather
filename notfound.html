@@ -1,14 +1,20 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>goweather - Not Found</title>
+        <title>Not Found - goweather</title>
         <link rel="stylesheet" type="text/css" href="/include/styles.css" />
     </head>
 
-    <body class="content">
-      <div class="header"><a href="/">goweather</a></div>
-      <div class="title">Not found.</div>
-      <div class="subtitle">Sorry, that city could not be found.</div>
+    <body>
+      <div class="navbar" onsubmit="redir();">
+        <form>
+          <input class="input" type="text" id="query" /> <input type="button" value="go" onClick="redir();"/>
+        </form>
+      </div>
+
+      <div class="content">
+        <div class="title">Not found.</div>
+        <div class="subtitle">Sorry, that city could not be found.</div>
+      </div>
     </body>
 </html>
-
